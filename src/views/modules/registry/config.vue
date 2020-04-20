@@ -1,44 +1,39 @@
 <template>
-  <div class="mod-oss">
+  <div class="mod-schedule">
     <el-form :inline="true" :model="dataForm">
       <el-form-item>
-        <el-button type="primary" @click="configHandle()">云存储配置</el-button>
-        <el-button type="primary" @click="uploadHandle()">上传文件</el-button>
-        <el-button type="danger" @click="deleteHandle()" :disabled="dataListSelections.length <= 0">批量删除</el-button>
+        <el-input v-model="dataForm.beanName" placeholder="注册中心名称" clearable></el-input>
       </el-form-item>
     </el-form>
     <el-table
-      :data="dataList"
+      :data="dataList.slice((pageIndex-1)*pageSize,pageIndex*pageSize).filter(data => !dataForm.beanName || data.name.toLowerCase().includes(dataForm.beanName.toLowerCase()))"
       border
       v-loading="dataListLoading"
-      @selection-change="selectionChangeHandle"
       style="width: 100%;">
       <el-table-column
-        type="selection"
+        prop="name"
         header-align="center"
         align="center"
-        width="50">
+        label="注册中心名称">
       </el-table-column>
       <el-table-column
-        prop="id"
+        prop="zkAddressList"
         header-align="center"
         align="center"
-        width="80"
-        label="ID">
+        label="注册中心地址">
       </el-table-column>
       <el-table-column
-        prop="url"
+        prop="namespace"
         header-align="center"
         align="center"
-        label="URL地址">
+        label="命名空间">
       </el-table-column>
-      <el-table-column
-        prop="createDate"
-        header-align="center"
-        align="center"
-        width="180"
-        label="创建时间">
-      </el-table-column>
+<!--      <el-table-column-->
+<!--        prop="activated"-->
+<!--        header-align="center"-->
+<!--        align="center"-->
+<!--        label="是否连接">-->
+<!--      </el-table-column>-->
       <el-table-column
         fixed="right"
         header-align="center"
@@ -46,7 +41,8 @@
         width="150"
         label="操作">
         <template slot-scope="scope">
-          <el-button type="text" size="small" @click="deleteHandle(scope.row.id)">删除</el-button>
+          <el-button v-show = "!scope.row.activated" type="primary" size="small" @click="connectHandle(scope.row)">连接</el-button>
+          <el-button v-show = "scope.row.activated" type="success" size="small" >已连接</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -59,33 +55,25 @@
       :total="totalPage"
       layout="total, sizes, prev, pager, next, jumper">
     </el-pagination>
-    <!-- 弹窗, 云存储配置 -->
-    <config v-if="configVisible" ref="config"></config>
-    <!-- 弹窗, 上传文件 -->
-    <upload v-if="uploadVisible" ref="upload" @refreshDataList="getDataList"></upload>
   </div>
 </template>
 
 <script>
-  import Config from './oss-config'
-  import Upload from './oss-upload'
   export default {
     data () {
       return {
-        dataForm: {},
+        dataForm: {
+          beanName: ''
+        },
         dataList: [],
         pageIndex: 1,
         pageSize: 10,
-        totalPage: 0,
+        totalPage: 1,
         dataListLoading: false,
         dataListSelections: [],
-        configVisible: false,
-        uploadVisible: false
+        addOrUpdateVisible: false,
+        logVisible: false
       }
-    },
-    components: {
-      Config,
-      Upload
     },
     activated () {
       this.getDataList()
@@ -95,16 +83,12 @@
       getDataList () {
         this.dataListLoading = true
         this.$http({
-          url: this.$http.adornUrl('/sys/oss/list'),
-          method: 'get',
-          params: this.$http.adornParams({
-            'page': this.pageIndex,
-            'limit': this.pageSize
-          })
+          url: this.$http.adornUrl('/registry-center/listCenter'),
+          method: 'get'
         }).then(({data}) => {
           if (data && data.code === 0) {
-            this.dataList = data.page.list
-            this.totalPage = data.page.totalCount
+            this.dataList = data.centerList
+            this.totalPage = data.centerList.length
           } else {
             this.dataList = []
             this.totalPage = 0
@@ -116,45 +100,26 @@
       sizeChangeHandle (val) {
         this.pageSize = val
         this.pageIndex = 1
-        this.getDataList()
       },
       // 当前页
       currentChangeHandle (val) {
         this.pageIndex = val
-        this.getDataList()
       },
-      // 多选
-      selectionChangeHandle (val) {
-        this.dataListSelections = val
-      },
-      // 云存储配置
-      configHandle () {
-        this.configVisible = true
-        this.$nextTick(() => {
-          this.$refs.config.init()
-        })
-      },
-      // 上传文件
-      uploadHandle () {
-        this.uploadVisible = true
-        this.$nextTick(() => {
-          this.$refs.upload.init()
-        })
-      },
-      // 删除
-      deleteHandle (id) {
-        var ids = id ? [id] : this.dataListSelections.map(item => {
-          return item.id
-        })
-        this.$confirm(`确定对[id=${ids.join(',')}]进行[${id ? '删除' : '批量删除'}]操作?`, '提示', {
+      connectHandle (val) {
+        var data = {
+          'name': val.name,
+          'namespace': val.namespace,
+          'zkAddressList': val.zkAddressList
+        }
+        this.$confirm(`确定对连接操作?`, '提示', {
           confirmButtonText: '确定',
           cancelButtonText: '取消',
           type: 'warning'
         }).then(() => {
           this.$http({
-            url: this.$http.adornUrl('/sys/oss/delete'),
+            url: this.$http.adornUrl('/registry-center/connect'),
             method: 'post',
-            data: this.$http.adornData(ids, false)
+            data: this.$http.adornData(data, false)
           }).then(({data}) => {
             if (data && data.code === 0) {
               this.$message({
@@ -169,7 +134,8 @@
               this.$message.error(data.msg)
             }
           })
-        }).catch(() => {})
+        }).catch(() => {
+        })
       }
     }
   }

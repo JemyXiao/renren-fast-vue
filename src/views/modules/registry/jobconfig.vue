@@ -4,9 +4,9 @@
       <el-form-item>
         <el-input v-model="dataForm.beanName" placeholder="作业名称" clearable></el-input>
       </el-form-item>
-<!--      <el-form-item>-->
-<!--        <el-button @click="getDataList()" type="primary">查询</el-button>-->
-<!--      </el-form-item>-->
+      <el-form-item>
+        <el-button @click="getDataList()" type="primary">查询</el-button>
+      </el-form-item>
     </el-form>
     <el-table
       :data="dataList.slice((pageIndex-1)*pageSize,pageIndex*pageSize).filter(data => !dataForm.beanName || data.jobName.toLowerCase().includes(dataForm.beanName.toLowerCase()))"
@@ -57,19 +57,19 @@
         label="操作">
         <template slot-scope="scope">
           <el-tooltip class="item" effect="dark"  content="修改作业" placement="top-start">
-            <el-button  type="primary" icon="el-icon-edit"  circle @click="updateHandle(scope.row.jobName)"></el-button>
+            <el-button v-if="isAuth('job:update')" type="primary" icon="el-icon-edit"  circle @click="updateHandle(scope.row.jobName)"></el-button>
           </el-tooltip>
           <el-tooltip class="item" effect="dark" content="触发作业" placement="top-start">
-            <el-button v-show = "scope.row.status === 'OK'" type="warning" icon="el-icon-bell" circle @click="triggerHandle(scope.row.jobName)"></el-button>
+            <el-button v-show = "isAuth('job:trigger') && scope.row.status === 'OK'" type="warning" icon="el-icon-bell" circle @click="triggerHandle(scope.row.jobName)"></el-button>
           </el-tooltip>
           <el-tooltip class="item" effect="dark" content="失效作业" placement="top-start">
-            <el-button v-show = "scope.row.status === 'OK'" type="danger" icon="el-icon-error" circle @click="disabledHandle(scope.row.jobName)"></el-button>
+            <el-button v-show = "isAuth('job:disabled') && scope.row.status === 'OK'" type="danger" icon="el-icon-error" circle @click="disabledHandle(scope.row.jobName)"></el-button>
           </el-tooltip>
           <el-tooltip class="item" effect="dark" content="生效作业" placement="top-start">
-            <el-button v-show = "scope.row.status === 'DISABLED'" type="danger" icon="el-icon-success" circle @click="enableHandle(scope.row.jobName)"></el-button>
+            <el-button v-show = "isAuth('job:enabled') && scope.row.status === 'DISABLED'" type="danger" icon="el-icon-success" circle @click="enableHandle(scope.row.jobName)"></el-button>
           </el-tooltip>
           <el-tooltip class="item" effect="dark" content="终止作业" placement="top-start">
-            <el-button v-show = "scope.row.status !== 'CRASHED'" type="danger" icon="el-icon-remove" circle @click="shutDownHandle(scope.row.jobName)"></el-button>
+            <el-button v-show = "isAuth('job:shutdown') && scope.row.status !== 'CRASHED'" type="danger" icon="el-icon-remove" circle @click="shutDownHandle(scope.row.jobName)"></el-button>
           </el-tooltip>
         </template>
       </el-table-column>
@@ -251,6 +251,7 @@
           } else {
             this.dataList = []
             this.totalPage = 0
+            this.$message.error(data.msg)
           }
           this.dataListLoading = false
         })
